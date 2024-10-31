@@ -12,10 +12,10 @@ class boundary_element_model_config:
         icosahedral_subdivision_level (int): The resolution of the cortical surface mesh.
             Specifies the surface downsampling level. For example:
             - 5 corresponds to 20484 vertices,
-            - 4 corresponds to 5120 vertices,
-            - 3 corresponds to 1280 vertices.
+            - 4 corresponds to 5120 vertices, 4x less than 5
+            - 3 corresponds to 1280 vertices. 4x less than 4 (accidently??)
             If set to None, no subsampling is applied.
-        conductivities_of_the_layers (tuple): A tuple representing the conductivities for each shell.
+        conductivities_of_the_layers (tuple): A tuple representing the conductivities for each shell (skin, skull, brain).
             It can be:
             - A single float for a one-layer model (e.g., (0.3,)).
             - Three elements for a three-layer model (e.g., (0.3, 0.006, 0.3)).
@@ -34,9 +34,9 @@ class boundary_element_model_config:
 default_bem_config = boundary_element_model_config(
     icosahedral_subdivision_level=4,
     conductivities_of_the_layers=(
-        0.3,
-        0.006,
-        0.3,
+        0.3, #skin - units - Siemens / meter
+        0.006, #skull
+        0.3, #brain
     ),
 )
 
@@ -47,7 +47,8 @@ class source_space_config:
 
     Attributes:
         spacing_between_dipoles (float): Defines the positions of sources using grid spacing in mm.
-        minimal_distance_of_source_from_inner_skull (float): Excludes points closer than this distance (in mm) to the bounding surface.
+        minimal_distance_of_source_from_inner_skull (float): Excludes points closer than this distance (in mm) to the bounding surface. 
+        Intuitively we want to get rid of those dipoles which are too close to skull and too far away from brain.
     """
 
     def __init__(
@@ -58,12 +59,13 @@ class source_space_config:
         self.spacing_between_dipoles = spacing_between_dipoles
         self.minimal_distance_of_source_from_inner_skull = minimal_distance_of_source_from_inner_skull
 
-
+# Beware of too small values of minimal distance of source from inner skull - 
+# it might cause some problems with forward model.
 default_ss_config = source_space_config(
-    spacing_between_dipoles=5, minimal_distance_of_source_from_inner_skull=5.0
+    spacing_between_dipoles=5.0, minimal_distance_of_source_from_inner_skull=5.0
 )
 
-
+# TODO this is forward of average model change name
 class average_forward_model_config:
     """
     Configuration class for the average forward model.
@@ -92,9 +94,10 @@ default_biosemi64_fm_config = average_forward_model_config(
     montage_name="biosemi64",
     bem=default_bem_config,
     source=default_ss_config,
-    njobs=10,
+    njobs=-1,
 )
-
+# can we do forward model with gpu? not directly 
+# mne.utils.set_config('MNE_USE_CUDA', 'true')
 
 class average_forward_model(mne.Forward):
     """
